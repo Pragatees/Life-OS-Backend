@@ -11,11 +11,16 @@ public class CreateTaskRequest {
     @NotBlank(message = "Task name is required")
     private String taskName;
 
+    private String description;
+
     @NotNull(message = "Task date is required")
     private LocalDate taskDate;
 
     @NotNull(message = "Task time is required")
     private LocalTime taskTime;
+
+    @NotBlank(message = "Priority is required")
+    private String priority;
 
     public CreateTaskRequest() {
     }
@@ -26,6 +31,14 @@ public class CreateTaskRequest {
 
     public void setTaskName(String taskName) {
         this.taskName = taskName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public LocalDate getTaskDate() {
@@ -42,5 +55,13 @@ public class CreateTaskRequest {
 
     public void setTaskTime(LocalTime taskTime) {
         this.taskTime = taskTime;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
     }
 }

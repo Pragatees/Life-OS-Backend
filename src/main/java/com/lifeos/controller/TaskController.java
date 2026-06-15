@@ -48,8 +48,10 @@ public class TaskController {
         Task task = new Task();
 
         task.setTaskName(request.getTaskName());
+        task.setDescription(request.getDescription());
         task.setTaskDate(request.getTaskDate());
         task.setTaskTime(request.getTaskTime());
+        task.setPriority(request.getPriority());
 
         task.setUser(user);
 
@@ -58,8 +60,10 @@ public class TaskController {
         TaskResponse response = new TaskResponse(
                 savedTask.getId(),
                 savedTask.getTaskName(),
+                savedTask.getDescription(),
                 savedTask.getTaskDate(),
                 savedTask.getTaskTime(),
+                savedTask.getPriority(),
                 savedTask.getCompleted()
         );
 
@@ -88,8 +92,10 @@ public class TaskController {
                 .map(task -> new TaskResponse(
                         task.getId(),
                         task.getTaskName(),
+                        task.getDescription(),
                         task.getTaskDate(),
                         task.getTaskTime(),
+                        task.getPriority(),
                         task.getCompleted()
                 ))
                 .collect(Collectors.toList());
@@ -118,8 +124,10 @@ public class TaskController {
         TaskResponse response = new TaskResponse(
                 updatedTask.getId(),
                 updatedTask.getTaskName(),
+                updatedTask.getDescription(),
                 updatedTask.getTaskDate(),
                 updatedTask.getTaskTime(),
+                updatedTask.getPriority(),
                 updatedTask.getCompleted()
         );
 
@@ -163,16 +171,20 @@ public class TaskController {
                         new TaskNotFoundException("Task not found"));
 
         task.setTaskName(request.getTaskName());
+        task.setDescription(request.getDescription());
         task.setTaskDate(request.getTaskDate());
         task.setTaskTime(request.getTaskTime());
+        task.setPriority(request.getPriority());
 
         Task updatedTask = taskRepository.save(task);
 
         TaskResponse response = new TaskResponse(
                 updatedTask.getId(),
                 updatedTask.getTaskName(),
+                updatedTask.getDescription(),
                 updatedTask.getTaskDate(),
                 updatedTask.getTaskTime(),
+                updatedTask.getPriority(),
                 updatedTask.getCompleted()
         );
 

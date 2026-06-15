@@ -18,11 +18,17 @@ public class Task {
     @Column(nullable = false)
     private String taskName;
 
+    @Column(length = 500)
+    private String description;
+
     @Column(nullable = false)
     private LocalDate taskDate;
 
     @Column(nullable = false)
     private LocalTime taskTime;
+
+    @Column(nullable = false)
+    private String priority;
 
     @Column(nullable = false)
     private Boolean completed;
@@ -44,6 +50,10 @@ public class Task {
         if (completed == null) {
             completed = false;
         }
+
+        if (priority == null || priority.isBlank()) {
+            priority = "MEDIUM";
+        }
     }
 
     // Getters and Setters
@@ -64,6 +74,14 @@ public class Task {
         this.taskName = taskName;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public LocalDate getTaskDate() {
         return taskDate;
     }
@@ -78,6 +96,14 @@ public class Task {
 
     public void setTaskTime(LocalTime taskTime) {
         this.taskTime = taskTime;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
     }
 
     public Boolean getCompleted() {

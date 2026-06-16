@@ -1,5 +1,5 @@
 package com.lifeos.controller;
-
+import java.util.Random;
 import com.lifeos.dto.request.LoginRequest;
 import com.lifeos.dto.request.SignUpRequest;
 import com.lifeos.dto.response.AuthResponse;
@@ -12,13 +12,29 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
+
+import com.lifeos.dto.request.ForgotPasswordRequest;
+import com.lifeos.entity.PasswordResetToken;
+import com.lifeos.repository.PasswordResetTokenRepository;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 import com.lifeos.exception.UserNotFoundException;
 
 import com.lifeos.dto.response.MeResponse;
 import com.lifeos.security.UserPrincipal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-
+import com.lifeos.service.EmailService;
 import jakarta.validation.Valid;
+
+import com.lifeos.dto.request.ResetPasswordRequest;
+import com.lifeos.entity.PasswordResetToken;
+
+import com.lifeos.dto.request.VerifyOtpRequest;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,14 +43,20 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     public AuthController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
-                          JwtTokenProvider jwtTokenProvider) {
+                          JwtTokenProvider jwtTokenProvider,
+                          EmailService emailService ,
+                          PasswordResetTokenRepository passwordResetTokenRepository) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.emailService = emailService;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
     }
 
 
@@ -119,4 +141,196 @@ public class AuthController {
 
         return ResponseEntity.ok(response);
     }
+    @GetMapping("/test-email")
+    public ResponseEntity<String> testEmail() {
+
+        emailService.sendEmail(
+                "haripragateesh7@gmail.com",
+                "Life OS Email Test",
+                "Congratulations! Life OS email integration is working."
+        );
+
+        return ResponseEntity.ok(
+                "Test email sent successfully");
+    }
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElse(null);
+
+        /*
+         * If user exists, generate reset token
+         */
+        if (user != null) {
+
+            /*
+             * Delete previous tokens
+             */
+            passwordResetTokenRepository.deleteByUser(user);
+
+            /*
+             * Create new token
+             */
+            PasswordResetToken resetToken =
+                    new PasswordResetToken();
+
+            String token = String.format(
+                    "%06d",
+                    new Random().nextInt(1000000));
+
+            resetToken.setToken(token);
+            resetToken.setUser(user);
+
+            /*
+             * Token expires in 15 minutes
+             */
+            resetToken.setExpiryDate(
+                    LocalDateTime.now().plusMinutes(15));
+
+            passwordResetTokenRepository.save(resetToken);
+
+            /*
+             * Send email
+             */
+            String resetLink =
+                    "http://localhost:8081/reset-password?token="
+                            + token;
+
+            emailService.sendEmail(
+                    user.getEmail(),
+                    "Life OS Password Reset Code",
+                    "Your Life OS password reset code is:\n\n"
+                            + token
+                            + "\n\nThis code expires in 15 minutes.");
+        }
+
+        /*
+         * Generic response
+         */
+        return ResponseEntity.ok(
+                "If an account exists, a password reset link has been sent.");
+    }
+    @Transactional
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        /*
+         * Find token
+         */
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository
+                        .findByToken(request.getToken())
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Invalid reset token"));
+
+        /*
+         * Check if token already used
+         */
+        if (resetToken.isUsed()) {
+
+            return ResponseEntity.badRequest()
+                    .body("This reset link has already been used.");
+        }
+
+        /*
+         * Check token expiry
+         */
+        if (resetToken.getExpiryDate()
+                .isBefore(LocalDateTime.now())) {
+
+            return ResponseEntity.badRequest()
+                    .body("Reset link has expired.");
+        }
+
+        /*
+         * Verify passwords match
+         */
+        if (!request.getNewPassword()
+                .equals(request.getConfirmPassword())) {
+
+            return ResponseEntity.badRequest()
+                    .body("Passwords do not match.");
+        }
+
+        User user = resetToken.getUser();
+
+        /*
+         * Prevent using same password
+         */
+        if (passwordEncoder.matches(
+                request.getNewPassword(),
+                user.getPassword())) {
+
+            return ResponseEntity.badRequest()
+                    .body("New password must be different from the current password.");
+        }
+
+        /*
+         * Update password
+         */
+        user.setPassword(
+                passwordEncoder.encode(
+                        request.getNewPassword()));
+
+        userRepository.save(user);
+
+        /*
+         * Mark token as used
+         */
+        resetToken.setUsed(true);
+
+        passwordResetTokenRepository.save(resetToken);
+
+        /*
+         * Delete other reset tokens
+         */
+        passwordResetTokenRepository
+                .deleteByUser(user);
+
+        /*
+         * Send notification email
+         */
+        emailService.sendEmail(
+                user.getEmail(),
+                "Life OS Password Changed",
+                "Your Life OS password has been changed successfully.\n\n"
+                        + "If this wasn't you, please contact support immediately.");
+
+        return ResponseEntity.ok(
+                "Password reset successfully.");
+    }
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<String> verifyResetOtp(
+            @Valid @RequestBody VerifyOtpRequest request) {
+
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository
+                        .findByToken(request.getToken())
+                        .orElse(null);
+
+        if (resetToken == null) {
+            return ResponseEntity.badRequest()
+                    .body("Invalid OTP.");
+        }
+
+        if (resetToken.isUsed()) {
+            return ResponseEntity.badRequest()
+                    .body("OTP has already been used.");
+        }
+
+        if (resetToken.getExpiryDate()
+                .isBefore(LocalDateTime.now())) {
+
+            return ResponseEntity.badRequest()
+                    .body("OTP has expired.");
+        }
+
+        return ResponseEntity.ok(
+                "OTP verified successfully.");
+    }
+
 }

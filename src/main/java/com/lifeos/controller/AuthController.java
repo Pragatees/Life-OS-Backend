@@ -161,39 +161,73 @@ public class AuthController {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElse(null);
 
-        if (user != null) {
-
-            passwordResetTokenRepository.deleteByUser(user);
-
-            PasswordResetToken resetToken = new PasswordResetToken();
-
-            String token = String.format("%06d",
-                    new Random().nextInt(1000000));
-
-            resetToken.setToken(token);
-            resetToken.setUser(user);
-            resetToken.setExpiryDate(LocalDateTime.now().plusMinutes(15));
-
-            passwordResetTokenRepository.save(resetToken);
-
-            try {
-
-                emailService.sendEmail(
-                        user.getEmail(),
-                        "Life OS Password Reset Code",
-                        "Your Life OS password reset code is:\n\n"
-                                + token
-                                + "\n\nThis code expires in 15 minutes.");
-
-            } catch (Exception e) {
-
-                e.printStackTrace();
-
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(e.getClass().getName() + "\n\n" + e.getMessage());
-                
-            }
+        /*
+         * Always return the same response.
+         * This prevents attackers from discovering
+         * whether an email exists.
+         */
+        if (user == null) {
+            return ResponseEntity.ok(
+                    "If an account exists, a password reset code has been sent.");
         }
+
+        /*
+         * Delete previous OTP
+         */
+        passwordResetTokenRepository.deleteByUser(user);
+
+        /*
+         * Generate 6-digit OTP
+         */
+        String otp = String.format("%06d",
+                new Random().nextInt(1000000));
+
+        /*
+         * Send Email First
+         */
+        try {
+
+            emailService.sendEmail(
+                    user.getEmail(),
+                    "Life OS - Password Reset Verification Code",
+
+                    """
+                    Hello,
+    
+                    We received a request to reset your Life OS account password.
+    
+                    Your verification code is:
+    
+                    %s
+    
+                    This code is valid for 15 minutes.
+    
+                    If you didn't request this password reset,
+                    you can safely ignore this email.
+    
+                    Regards,
+                    Life OS Team
+                    """.formatted(otp));
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send verification email.");
+        }
+
+        /*
+         * Save OTP only after email is sent successfully
+         */
+        PasswordResetToken resetToken = new PasswordResetToken();
+
+        resetToken.setUser(user);
+        resetToken.setToken(otp);
+        resetToken.setExpiryDate(
+                LocalDateTime.now().plusMinutes(15));
+
+        passwordResetTokenRepository.save(resetToken);
 
         return ResponseEntity.ok(
                 "If an account exists, a password reset code has been sent.");

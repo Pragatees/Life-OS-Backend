@@ -1,6 +1,7 @@
 package com.lifeos.controller;
 
-import org.springframework.core.env.Environment;
+import com.lifeos.service.EmailService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -9,26 +10,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/test")
 public class TestController {
 
-    private final Environment environment;
+    private final EmailService emailService;
 
-    public TestController(Environment environment) {
-        this.environment = environment;
+    public TestController(EmailService emailService) {
+        this.emailService = emailService;
     }
 
-    @GetMapping("/env")
-    public String env() {
+    @GetMapping("/brevo")
+    public String testBrevo() {
 
-        return """
-                MAIL_USERNAME = %s
-                MAIL_PASSWORD = %s
-                DB_USERNAME = %s
-                JWT_SECRET = %s
-                """
-                .formatted(
-                        environment.getProperty("MAIL_USERNAME"),
-                        environment.getProperty("MAIL_PASSWORD"),
-                        environment.getProperty("SPRING_DATASOURCE_USERNAME"),
-                        environment.getProperty("JWT_SECRET")
-                );
+        emailService.sendEmail(
+                "pragateesh.g2022ai-ds@sece.ac.in",
+                "Life OS Test",
+                "Hello from Life OS using Brevo!");
+
+        return "Email Sent Successfully";
     }
 }

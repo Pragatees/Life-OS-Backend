@@ -1,43 +1,46 @@
-@PostMapping("/forgot-password")
-public ResponseEntity<String> forgotPassword(
-        @Valid @RequestBody ForgotPasswordRequest request) {
+package com.lifeos.service;
 
-    User user = userRepository.findByEmail(request.getEmail())
-            .orElse(null);
+import java.util.Properties;
 
-    if (user != null) {
+import org.springframework.core.env.Environment;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.stereotype.Service;
 
-        passwordResetTokenRepository.deleteByUser(user);
+@Service
+public class EmailService {
 
-        PasswordResetToken resetToken = new PasswordResetToken();
+    private final Environment environment;
 
-        String token = String.format("%06d",
-                new Random().nextInt(1000000));
-
-        resetToken.setToken(token);
-        resetToken.setUser(user);
-        resetToken.setExpiryDate(LocalDateTime.now().plusMinutes(15));
-
-        passwordResetTokenRepository.save(resetToken);
-
-        try {
-
-            emailService.sendEmail(
-                    user.getEmail(),
-                    "Life OS Password Reset Code",
-                    "Your Life OS password reset code is:\n\n"
-                            + token
-                            + "\n\nThis code expires in 15 minutes.");
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to send OTP email.");
-        }
+    public EmailService(Environment environment) {
+        this.environment = environment;
     }
 
-    return ResponseEntity.ok(
-            "If an account exists, a password reset code has been sent.");
+    public void sendEmail(String to, String subject, String body) {
+
+        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
+
+        // Hardcoded SMTP configuration
+        mailSender.setHost("smtp.gmail.com");
+        mailSender.setPort(587);
+
+        // Read directly from Environment Variables
+        mailSender.setUsername(environment.getProperty("MAIL_USERNAME"));
+        mailSender.setPassword(environment.getProperty("MAIL_PASSWORD"));
+
+        // SMTP Properties
+        Properties props = mailSender.getJavaMailProperties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+
+        // Create Email
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(environment.getProperty("MAIL_USERNAME"));
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(body);
+
+        // Send Email
+        mailSender.send(message);
+    }
 }

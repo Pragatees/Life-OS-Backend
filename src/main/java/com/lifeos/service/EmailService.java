@@ -1,30 +1,43 @@
-package com.lifeos.service;
+@PostMapping("/forgot-password")
+public ResponseEntity<String> forgotPassword(
+        @Valid @RequestBody ForgotPasswordRequest request) {
 
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.stereotype.Service;
+    User user = userRepository.findByEmail(request.getEmail())
+            .orElse(null);
 
-@Service
-public class EmailService {
+    if (user != null) {
 
-    private final JavaMailSender mailSender;
+        passwordResetTokenRepository.deleteByUser(user);
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+        PasswordResetToken resetToken = new PasswordResetToken();
+
+        String token = String.format("%06d",
+                new Random().nextInt(1000000));
+
+        resetToken.setToken(token);
+        resetToken.setUser(user);
+        resetToken.setExpiryDate(LocalDateTime.now().plusMinutes(15));
+
+        passwordResetTokenRepository.save(resetToken);
+
+        try {
+
+            emailService.sendEmail(
+                    user.getEmail(),
+                    "Life OS Password Reset Code",
+                    "Your Life OS password reset code is:\n\n"
+                            + token
+                            + "\n\nThis code expires in 15 minutes.");
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send OTP email.");
+        }
     }
 
-    public void sendEmail(
-            String to,
-            String subject,
-            String body) {
-
-        SimpleMailMessage message =
-                new SimpleMailMessage();
-
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(body);
-
-        mailSender.send(message);
-    }
+    return ResponseEntity.ok(
+            "If an account exists, a password reset code has been sent.");
 }

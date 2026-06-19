@@ -35,6 +35,7 @@ import com.lifeos.entity.PasswordResetToken;
 import com.lifeos.dto.request.VerifyOtpRequest;
 
 import java.time.LocalDateTime;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -160,57 +161,41 @@ public class AuthController {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElse(null);
 
-        /*
-         * If user exists, generate reset token
-         */
         if (user != null) {
 
-            /*
-             * Delete previous tokens
-             */
             passwordResetTokenRepository.deleteByUser(user);
 
-            /*
-             * Create new token
-             */
-            PasswordResetToken resetToken =
-                    new PasswordResetToken();
+            PasswordResetToken resetToken = new PasswordResetToken();
 
-            String token = String.format(
-                    "%06d",
+            String token = String.format("%06d",
                     new Random().nextInt(1000000));
 
             resetToken.setToken(token);
             resetToken.setUser(user);
-
-            /*
-             * Token expires in 15 minutes
-             */
-            resetToken.setExpiryDate(
-                    LocalDateTime.now().plusMinutes(15));
+            resetToken.setExpiryDate(LocalDateTime.now().plusMinutes(15));
 
             passwordResetTokenRepository.save(resetToken);
 
-            /*
-             * Send email
-             */
-            String resetLink =
-                    "http://localhost:8081/reset-password?token="
-                            + token;
+            try {
 
-            emailService.sendEmail(
-                    user.getEmail(),
-                    "Life OS Password Reset Code",
-                    "Your Life OS password reset code is:\n\n"
-                            + token
-                            + "\n\nThis code expires in 15 minutes.");
+                emailService.sendEmail(
+                        user.getEmail(),
+                        "Life OS Password Reset Code",
+                        "Your Life OS password reset code is:\n\n"
+                                + token
+                                + "\n\nThis code expires in 15 minutes.");
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Failed to send OTP email.");
+            }
         }
 
-        /*
-         * Generic response
-         */
         return ResponseEntity.ok(
-                "If an account exists, a password reset link has been sent.");
+                "If an account exists, a password reset code has been sent.");
     }
     @Transactional
     @PostMapping("/reset-password")

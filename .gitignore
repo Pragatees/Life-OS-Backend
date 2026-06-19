@@ -33,6 +33,3 @@ build/
 .vscode/
 .idea/
 
-# Environment variables
-.env
-.env.*

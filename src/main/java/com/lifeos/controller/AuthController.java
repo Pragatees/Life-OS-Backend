@@ -190,7 +190,8 @@ public class AuthController {
                 e.printStackTrace();
 
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Failed to send OTP email.");
+            .body(e.getClass().getName() + "\n\n" + e.getMessage());
+                
             }
         }
 

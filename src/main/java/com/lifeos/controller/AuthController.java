@@ -317,5 +317,25 @@ public class AuthController {
         return ResponseEntity.ok(
                 "OTP verified successfully.");
     }
+    @GetMapping("/mail")
+    public ResponseEntity<String> testMail() {
+
+        try {
+
+            emailService.sendEmail(
+                    "your_email@gmail.com",
+                    "Life OS Test",
+                    "SMTP Test");
+
+            return ResponseEntity.ok("Mail Sent");
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity.status(500)
+                    .body(e.getClass().getName() + "\n" + e.getMessage());
+        }
+    }
 
 }

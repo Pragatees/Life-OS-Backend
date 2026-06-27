@@ -97,13 +97,16 @@ public class AuthController {
     public ResponseEntity<?> loginUser(@Valid @RequestBody LoginRequest request) {
 
         User user = userRepository
-                .findByUsername(request.getUsername())
+                .findByUsernameOrEmail(
+                        request.getUsernameOrEmail(),
+                        request.getUsernameOrEmail()
+                )
                 .orElse(null);
 
         if (user == null) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body(new AuthResponse("Invalid username or password"));
+                    .body(new AuthResponse("Invalid username/email or password"));
         }
 
         if (!passwordEncoder.matches(
@@ -112,7 +115,7 @@ public class AuthController {
 
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body(new AuthResponse("Invalid username or password"));
+                    .body(new AuthResponse("Invalid username/email or password"));
         }
 
         String token = jwtTokenProvider.generateToken(user);

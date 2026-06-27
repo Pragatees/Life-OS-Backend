@@ -16,8 +16,6 @@
         ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚══╝╚═════╝
 ```
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=22&pause=1000&color=6366F1&center=true&vCenter=true&width=600&lines=🚀+Productivity+Reimagined;🔐+Secure+%7C+Scalable+%7C+Smart;⚡+Spring+Boot+%2B+JWT+%2B+PostgreSQL;🧠+AI+Features+Coming+Soon..." alt="Typing SVG" />
-
 <br/>
 
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
@@ -306,7 +304,7 @@ Create a `.env` file in the project root:
 
 ```env
 # ─── Database ─────────────────────────────────────────
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/lifeos
+SPRING_DATASOURCE_URL=your_db_url
 SPRING_DATASOURCE_USERNAME=your_db_user
 SPRING_DATASOURCE_PASSWORD=your_db_password
 

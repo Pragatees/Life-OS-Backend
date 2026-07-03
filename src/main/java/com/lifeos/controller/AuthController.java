@@ -37,6 +37,9 @@ import com.lifeos.dto.request.VerifyOtpRequest;
 import java.time.LocalDateTime;
 import org.springframework.http.HttpStatus;
 
+import com.lifeos.dto.request.GoogleLoginRequest;
+import com.lifeos.service.GoogleAuthService;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -46,18 +49,21 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final GoogleAuthService googleAuthService;
 
     public AuthController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
                           JwtTokenProvider jwtTokenProvider,
-                          EmailService emailService ,
-                          PasswordResetTokenRepository passwordResetTokenRepository) {
+                          EmailService emailService,
+                          PasswordResetTokenRepository passwordResetTokenRepository,
+                          GoogleAuthService googleAuthService) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.emailService = emailService;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.googleAuthService = googleAuthService;
     }
 
 
@@ -355,6 +361,18 @@ public class AuthController {
         return ResponseEntity.ok(
                 "OTP verified successfully.");
     }
+
+    @PostMapping("/google/login")
+    public ResponseEntity<LoginResponse> googleLogin(
+            @Valid @RequestBody GoogleLoginRequest request) {
+
+        LoginResponse response =
+                googleAuthService.loginWithGoogle(
+                        request.getIdToken());
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/mail")
     public ResponseEntity<String> testMail() {
 

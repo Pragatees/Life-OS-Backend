@@ -21,11 +21,40 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    /*
+     * LOCAL users -> BCrypt password
+     * GOOGLE users -> null
+     */
+    @Column(nullable = true)
     private String password;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    /*
+     * Authentication Provider
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    /*
+     * Google User ID
+     */
+    @Column(unique = true)
+    private String providerId;
+
+    /*
+     * Google Profile Picture
+     */
+    @Column
+    private String profilePicture;
+
+    /*
+     * Email Verification Status
+     */
+    @Column(nullable = false)
+    private Boolean emailVerified = false;
 
     public User() {
     }
@@ -35,7 +64,9 @@ public class User {
         createdAt = LocalDateTime.now();
     }
 
+    // =========================
     // Getters and Setters
+    // =========================
 
     public UUID getId() {
         return id;
@@ -79,5 +110,37 @@ public class User {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public AuthProvider getProvider() {
+        return provider;
+    }
+
+    public void setProvider(AuthProvider provider) {
+        this.provider = provider;
+    }
+
+    public String getProviderId() {
+        return providerId;
+    }
+
+    public void setProviderId(String providerId) {
+        this.providerId = providerId;
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
+    }
+
+    public Boolean getEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 }

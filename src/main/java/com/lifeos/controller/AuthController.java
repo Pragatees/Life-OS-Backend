@@ -366,9 +366,11 @@ public class AuthController {
     public ResponseEntity<LoginResponse> googleLogin(
             @Valid @RequestBody GoogleLoginRequest request) {
 
+        System.out.println("Controller reached");
+        System.out.println(request.getIdToken());
+
         LoginResponse response =
-                googleAuthService.loginWithGoogle(
-                        request.getIdToken());
+                googleAuthService.loginWithGoogle(request.getIdToken());
 
         return ResponseEntity.ok(response);
     }

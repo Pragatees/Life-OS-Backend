@@ -22,6 +22,13 @@ import com.lifeos.dto.request.DeleteAccountRequest;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import com.lifeos.service.CloudinaryService;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -29,12 +36,17 @@ public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TaskRepository taskRepository;
+    private final CloudinaryService cloudinaryService;
+
     public UserController(UserRepository userRepository,
-                          PasswordEncoder passwordEncoder , TaskRepository taskRepository) {
+                          PasswordEncoder passwordEncoder,
+                          TaskRepository taskRepository,
+                          CloudinaryService cloudinaryService) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.taskRepository = taskRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @PatchMapping("/profile")
@@ -240,5 +252,35 @@ public class UserController {
         return ResponseEntity.ok(
                 new MessageResponse(
                         "Account and all associated tasks deleted successfully"));
+    }
+    @PostMapping("/profile-picture")
+    public ResponseEntity<?> uploadProfilePicture(
+            @RequestParam("image") MultipartFile image,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        try {
+
+            User user = userRepository.findById(userPrincipal.getId())
+                    .orElseThrow(() ->
+                            new RuntimeException("User not found"));
+
+            String imageUrl = cloudinaryService.uploadProfilePicture(image);
+
+            user.setProfilePicture(imageUrl);
+
+            userRepository.save(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Profile picture updated successfully");
+            response.put("profilePicture", imageUrl);
+
+            return ResponseEntity.ok(response);
+
+        } catch (IOException e) {
+
+            return ResponseEntity.internalServerError().body(
+                    new MessageResponse("Failed to upload profile picture")
+            );
+        }
     }
 }

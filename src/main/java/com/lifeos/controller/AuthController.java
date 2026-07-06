@@ -142,15 +142,21 @@ public class AuthController {
     public ResponseEntity<MeResponse> getCurrentUser(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
+        User user = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
         MeResponse response = new MeResponse(
-                userPrincipal.getId(),
-                userPrincipal.getUsername(),
-                userPrincipal.getFullName(),
-                userPrincipal.getEmail()
+                user.getId(),
+                user.getUsername(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getProfilePicture()
         );
 
         return ResponseEntity.ok(response);
     }
+
     @GetMapping("/test-email")
     public ResponseEntity<String> testEmail() {
 

@@ -84,6 +84,7 @@ public class UserController {
                                 null,
                                 null,
                                 "Username already exists",
+                                null,
                                 null
                         )
                 );
@@ -98,7 +99,8 @@ public class UserController {
                 updatedUser.getId(),
                 updatedUser.getUsername(),
                 updatedUser.getFullName(),
-                updatedUser.getEmail()
+                updatedUser.getEmail(),
+                updatedUser.getProfilePicture()
         );
 
         return ResponseEntity.ok(response);

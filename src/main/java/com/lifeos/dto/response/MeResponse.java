@@ -8,6 +8,7 @@ public class MeResponse {
     private String username;
     private String fullName;
     private String email;
+    private String profilePicture;
 
     public MeResponse() {
     }
@@ -15,12 +16,14 @@ public class MeResponse {
     public MeResponse(UUID userId,
                       String username,
                       String fullName,
-                      String email) {
+                      String email,
+                      String profilePicture) {
 
         this.userId = userId;
         this.username = username;
         this.fullName = fullName;
         this.email = email;
+        this.profilePicture = profilePicture;
     }
 
     public UUID getUserId() {
@@ -53,5 +56,13 @@ public class MeResponse {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
     }
 }

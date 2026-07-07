@@ -1,57 +1,56 @@
 package com.lifeos.controller;
-import java.util.Random;
+
+import com.lifeos.dto.request.ChangePasswordRequest;
+import com.lifeos.dto.request.ForgotPasswordRequest;
+import com.lifeos.dto.request.GoogleLoginRequest;
 import com.lifeos.dto.request.LoginRequest;
+import com.lifeos.dto.request.ResetPasswordRequest;
+import com.lifeos.dto.request.SendDeleteAccountOtpRequest;
+import com.lifeos.dto.request.SendEmailChangeOtpRequest;
 import com.lifeos.dto.request.SignUpRequest;
+import com.lifeos.dto.request.VerifyDeleteAccountOtpRequest;
+import com.lifeos.dto.request.VerifyEmailChangeOtpRequest;
+import com.lifeos.dto.request.VerifyOtpRequest;
+
 import com.lifeos.dto.response.AuthResponse;
 import com.lifeos.dto.response.LoginResponse;
-import com.lifeos.entity.User;
-import com.lifeos.repository.UserRepository;
-import com.lifeos.security.JwtTokenProvider;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import com.lifeos.dto.response.MeResponse;
+import com.lifeos.dto.response.MessageResponse;
 
-import org.springframework.transaction.annotation.Transactional;
-
-import com.lifeos.dto.request.ForgotPasswordRequest;
+import com.lifeos.entity.DeleteAccountToken;
+import com.lifeos.entity.EmailChangeToken;
 import com.lifeos.entity.PasswordResetToken;
-import com.lifeos.repository.PasswordResetTokenRepository;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
+import com.lifeos.entity.User;
 
 import com.lifeos.exception.UserNotFoundException;
 
-import com.lifeos.dto.response.MeResponse;
+import com.lifeos.repository.DeleteAccountTokenRepository;
+import com.lifeos.repository.EmailChangeTokenRepository;
+import com.lifeos.repository.PasswordResetTokenRepository;
+import com.lifeos.repository.TaskRepository;
+import com.lifeos.repository.UserRepository;
+
+import com.lifeos.security.JwtTokenProvider;
 import com.lifeos.security.UserPrincipal;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 import com.lifeos.service.EmailService;
-import jakarta.validation.Valid;
-
-import com.lifeos.dto.request.ResetPasswordRequest;
-import com.lifeos.entity.PasswordResetToken;
-
-import com.lifeos.dto.request.VerifyOtpRequest;
-
-import java.time.LocalDateTime;
-import org.springframework.http.HttpStatus;
-
-import com.lifeos.dto.request.GoogleLoginRequest;
 import com.lifeos.service.GoogleAuthService;
 
-import com.lifeos.dto.request.SendEmailChangeOtpRequest;
-import com.lifeos.entity.EmailChangeToken;
-import com.lifeos.repository.EmailChangeTokenRepository;
+import jakarta.validation.Valid;
 
-import com.lifeos.dto.request.VerifyEmailChangeOtpRequest;
-import com.lifeos.dto.response.MessageResponse;
-import com.lifeos.entity.EmailChangeToken;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
-import com.lifeos.entity.DeleteAccountToken;
-import com.lifeos.repository.DeleteAccountTokenRepository;
-import com.lifeos.dto.request.VerifyDeleteAccountOtpRequest;
-import com.lifeos.repository.TaskRepository;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import org.springframework.transaction.annotation.Transactional;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.Random;
+import java.util.UUID;
 
 
 
@@ -597,26 +596,98 @@ public class AuthController {
                 new MessageResponse("Email updated successfully."));
     }
 
+    @PostMapping("/delete-account/send-otp")
+    public ResponseEntity<MessageResponse> sendDeleteAccountOtp(
+            @Valid @RequestBody SendDeleteAccountOtpRequest request) {
+
+        /*
+         * Find user by email
+         */
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElse(null);
+
+        if (user == null) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "No account found with this email."));
+        }
+
+        /*
+         * Delete previous OTP if exists
+         */
+        deleteAccountTokenRepository.deleteByUser(user);
+
+        /*
+         * Generate 6-digit OTP
+         */
+        String otp = String.format("%06d",
+                new Random().nextInt(1000000));
+
+        /*
+         * Send Email
+         */
+        try {
+
+            emailService.sendEmail(
+                    user.getEmail(),
+                    "Life OS - Delete Account Verification Code",
+
+                    """
+                    Hello,
+    
+                    We received a request to permanently delete your Life OS account.
+    
+                    Your verification code is:
+    
+                    %s
+    
+                    This code is valid for 15 minutes.
+    
+                    If you did not request this, please ignore this email.
+    
+                    Regards,
+                    Life OS Team
+                    """.formatted(otp));
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse(
+                            "Failed to send verification email."));
+        }
+
+        /*
+         * Save OTP
+         */
+        DeleteAccountToken token = new DeleteAccountToken();
+
+        token.setUser(user);
+        token.setToken(otp);
+        token.setExpiryDate(
+                LocalDateTime.now().plusMinutes(15));
+
+        deleteAccountTokenRepository.save(token);
+
+        return ResponseEntity.ok(
+                new MessageResponse(
+                        "Verification code sent successfully."));
+    }
+
     @Transactional
     @PostMapping("/delete-account/verify-otp")
     public ResponseEntity<MessageResponse> verifyDeleteAccountOtp(
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody VerifyDeleteAccountOtpRequest request) {
-
-        /*
-         * Find logged-in user
-         */
-        User user = userRepository.findById(userPrincipal.getId())
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
 
         /*
          * Find OTP
          */
-        DeleteAccountToken deleteToken =
-                deleteAccountTokenRepository
-                        .findByToken(request.getToken())
-                        .orElse(null);
+        DeleteAccountToken deleteToken = deleteAccountTokenRepository
+                .findByToken(request.getToken())
+                .orElse(null);
 
         /*
          * Invalid OTP
@@ -629,17 +700,7 @@ public class AuthController {
         }
 
         /*
-         * Ensure OTP belongs to logged-in user
-         */
-        if (!deleteToken.getUser().getId().equals(user.getId())) {
-
-            return ResponseEntity.badRequest()
-                    .body(new MessageResponse(
-                            "Invalid verification code."));
-        }
-
-        /*
-         * Already used
+         * Already Used
          */
         if (deleteToken.isUsed()) {
 
@@ -651,8 +712,7 @@ public class AuthController {
         /*
          * Expired OTP
          */
-        if (deleteToken.getExpiryDate()
-                .isBefore(LocalDateTime.now())) {
+        if (deleteToken.getExpiryDate().isBefore(LocalDateTime.now())) {
 
             deleteAccountTokenRepository.delete(deleteToken);
 
@@ -662,12 +722,17 @@ public class AuthController {
         }
 
         /*
+         * Get User
+         */
+        User user = deleteToken.getUser();
+
+        /*
          * Delete OTP
          */
         deleteAccountTokenRepository.delete(deleteToken);
 
         /*
-         * Delete all tasks of the user
+         * Delete all user tasks
          */
         taskRepository.deleteByUser(user);
 

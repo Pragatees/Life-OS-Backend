@@ -40,6 +40,21 @@ import org.springframework.http.HttpStatus;
 import com.lifeos.dto.request.GoogleLoginRequest;
 import com.lifeos.service.GoogleAuthService;
 
+import com.lifeos.dto.request.SendEmailChangeOtpRequest;
+import com.lifeos.entity.EmailChangeToken;
+import com.lifeos.repository.EmailChangeTokenRepository;
+
+import com.lifeos.dto.request.VerifyEmailChangeOtpRequest;
+import com.lifeos.dto.response.MessageResponse;
+import com.lifeos.entity.EmailChangeToken;
+
+import com.lifeos.entity.DeleteAccountToken;
+import com.lifeos.repository.DeleteAccountTokenRepository;
+import com.lifeos.dto.request.VerifyDeleteAccountOtpRequest;
+import com.lifeos.repository.TaskRepository;
+
+
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -50,13 +65,19 @@ public class AuthController {
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final GoogleAuthService googleAuthService;
+    private final EmailChangeTokenRepository emailChangeTokenRepository;
+    private final DeleteAccountTokenRepository deleteAccountTokenRepository;
+    private final TaskRepository taskRepository;
 
     public AuthController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
                           JwtTokenProvider jwtTokenProvider,
                           EmailService emailService,
                           PasswordResetTokenRepository passwordResetTokenRepository,
-                          GoogleAuthService googleAuthService) {
+                          GoogleAuthService googleAuthService,
+                          EmailChangeTokenRepository emailChangeTokenRepository,
+                          DeleteAccountTokenRepository deleteAccountTokenRepository,
+                          TaskRepository taskRepository) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -64,6 +85,9 @@ public class AuthController {
         this.emailService = emailService;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.googleAuthService = googleAuthService;
+        this.emailChangeTokenRepository = emailChangeTokenRepository;
+        this.deleteAccountTokenRepository = deleteAccountTokenRepository;
+        this.taskRepository = taskRepository;
     }
 
 
@@ -151,7 +175,8 @@ public class AuthController {
                 user.getUsername(),
                 user.getFullName(),
                 user.getEmail(),
-                user.getProfilePicture()
+                user.getProfilePicture(),
+                user.getProvider()
         );
 
         return ResponseEntity.ok(response);
@@ -400,6 +425,260 @@ public class AuthController {
             return ResponseEntity.status(500)
                     .body(e.getClass().getName() + "\n" + e.getMessage());
         }
+    }
+
+    @PostMapping("/change-email/send-otp")
+    public ResponseEntity<MessageResponse> sendEmailChangeOtp(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody SendEmailChangeOtpRequest request) {
+
+        User user = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        /*
+         * Same email
+         */
+        if (user.getEmail().equalsIgnoreCase(request.getNewEmail())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "New email cannot be the same as your current email."));
+        }
+
+        /*
+         * Email already exists
+         */
+        if (userRepository.existsByEmail(request.getNewEmail())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "Email is already in use."));
+        }
+
+        /*
+         * Delete previous OTP
+         */
+        emailChangeTokenRepository.deleteByUser(user);
+
+        /*
+         * Generate 6-digit OTP
+         */
+        String otp = String.format("%06d",
+                new Random().nextInt(1000000));
+
+        /*
+         * Send email first
+         */
+        try {
+
+            emailService.sendEmail(
+                    request.getNewEmail(),
+                    "Life OS - Email Change Verification Code",
+
+                    """
+                    Hello,
+    
+                    We received a request to change the email address for your Life OS account.
+    
+                    Your verification code is:
+    
+                    %s
+    
+                    This code is valid for 15 minutes.
+    
+                    If you didn't request this change,
+                    you can safely ignore this email.
+    
+                    Regards,
+                    Life OS Team
+                    """.formatted(otp));
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse(
+                            "Failed to send verification email."));
+        }
+
+        /*
+         * Save OTP
+         */
+        EmailChangeToken token = new EmailChangeToken();
+
+        token.setUser(user);
+        token.setNewEmail(request.getNewEmail());
+        token.setToken(otp);
+        token.setExpiryDate(
+                LocalDateTime.now().plusMinutes(15));
+
+        emailChangeTokenRepository.save(token);
+
+        return ResponseEntity.ok(
+                new MessageResponse(
+                        "Verification code sent successfully."));
+    }
+
+    @Transactional
+    @PostMapping("/change-email/verify-otp")
+    public ResponseEntity<MessageResponse> verifyEmailChangeOtp(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody VerifyEmailChangeOtpRequest request) {
+
+        /*
+         * Find logged-in user
+         */
+        User user = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        /*
+         * Find OTP
+         */
+        EmailChangeToken emailChangeToken =
+                emailChangeTokenRepository
+                        .findByToken(request.getToken())
+                        .orElse(null);
+
+        /*
+         * Invalid OTP
+         */
+        if (emailChangeToken == null) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Invalid verification code."));
+        }
+
+        /*
+         * Security check
+         * Ensure OTP belongs to logged-in user
+         */
+        if (!emailChangeToken.getUser().getId().equals(user.getId())) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Invalid verification code."));
+        }
+
+        /*
+         * Already used
+         */
+        if (emailChangeToken.isUsed()) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Verification code has already been used."));
+        }
+
+        /*
+         * Expired
+         */
+        if (emailChangeToken.getExpiryDate()
+                .isBefore(LocalDateTime.now())) {
+
+            emailChangeTokenRepository.delete(emailChangeToken);
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Verification code has expired."));
+        }
+
+        /*
+         * Update email
+         */
+        user.setEmail(emailChangeToken.getNewEmail());
+
+        userRepository.save(user);
+
+        /*
+         * Delete OTP after successful verification
+         */
+        emailChangeTokenRepository.delete(emailChangeToken);
+
+        return ResponseEntity.ok(
+                new MessageResponse("Email updated successfully."));
+    }
+
+    @Transactional
+    @PostMapping("/delete-account/verify-otp")
+    public ResponseEntity<MessageResponse> verifyDeleteAccountOtp(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody VerifyDeleteAccountOtpRequest request) {
+
+        /*
+         * Find logged-in user
+         */
+        User user = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        /*
+         * Find OTP
+         */
+        DeleteAccountToken deleteToken =
+                deleteAccountTokenRepository
+                        .findByToken(request.getToken())
+                        .orElse(null);
+
+        /*
+         * Invalid OTP
+         */
+        if (deleteToken == null) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "Invalid verification code."));
+        }
+
+        /*
+         * Ensure OTP belongs to logged-in user
+         */
+        if (!deleteToken.getUser().getId().equals(user.getId())) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "Invalid verification code."));
+        }
+
+        /*
+         * Already used
+         */
+        if (deleteToken.isUsed()) {
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "Verification code has already been used."));
+        }
+
+        /*
+         * Expired OTP
+         */
+        if (deleteToken.getExpiryDate()
+                .isBefore(LocalDateTime.now())) {
+
+            deleteAccountTokenRepository.delete(deleteToken);
+
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "Verification code has expired."));
+        }
+
+        /*
+         * Delete OTP
+         */
+        deleteAccountTokenRepository.delete(deleteToken);
+
+        /*
+         * Delete all tasks of the user
+         */
+        taskRepository.deleteByUser(user);
+
+        /*
+         * Delete user account
+         */
+        userRepository.delete(user);
+
+        return ResponseEntity.ok(
+                new MessageResponse(
+                        "Account deleted successfully."));
     }
 
 }

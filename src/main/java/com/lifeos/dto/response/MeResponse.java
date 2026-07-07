@@ -1,4 +1,5 @@
 package com.lifeos.dto.response;
+import com.lifeos.entity.AuthProvider;
 
 import java.util.UUID;
 
@@ -9,21 +10,25 @@ public class MeResponse {
     private String fullName;
     private String email;
     private String profilePicture;
+    private AuthProvider provider;
 
     public MeResponse() {
     }
 
-    public MeResponse(UUID userId,
-                      String username,
-                      String fullName,
-                      String email,
-                      String profilePicture) {
+    public MeResponse(
+            UUID id,
+            String username,
+            String fullName,
+            String email,
+            String profilePicture,
+            AuthProvider provider) {
 
-        this.userId = userId;
+        this.id = id;
         this.username = username;
         this.fullName = fullName;
         this.email = email;
         this.profilePicture = profilePicture;
+        this.provider = provider;
     }
 
     public UUID getUserId() {
@@ -40,6 +45,10 @@ public class MeResponse {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public void setProvider(AuthProvider provider) {
+        this.provider = provider;
     }
 
     public String getFullName() {
@@ -64,5 +73,9 @@ public class MeResponse {
 
     public void setProfilePicture(String profilePicture) {
         this.profilePicture = profilePicture;
+    }
+
+    public AuthProvider getProvider() {
+        return provider;
     }
 }

@@ -20,6 +20,16 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     );
 
     /*
+     * Get all tasks of a user between two dates
+     */
+    List<Task> findByUserAndTaskDateBetweenOrderByTaskDateAscTaskTimeAsc(
+            User user,
+            LocalDate startDate,
+            LocalDate endDate
+    );
+
+
+    /*
      * Get a task only if it belongs to the user
      */
     Optional<Task> findByIdAndUser(

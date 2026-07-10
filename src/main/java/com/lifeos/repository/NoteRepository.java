@@ -3,8 +3,11 @@ package com.lifeos.repository;
 import com.lifeos.entity.Note;
 import com.lifeos.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +35,20 @@ public interface NoteRepository extends JpaRepository<Note, UUID> {
     boolean existsByUserAndNoteDate(
             User user,
             LocalDate noteDate
+    );
+
+    /*
+     * Returns all dates for which the authenticated user
+     * has created notes.
+     */
+    @Query("""
+            SELECT n.noteDate
+            FROM Note n
+            WHERE n.user = :user
+            ORDER BY n.noteDate ASC
+            """)
+    List<LocalDate> findAllNoteDatesByUser(
+            @Param("user") User user
     );
 
     /*

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.List;
 
 /**
  * REST controller for managing a user's daily notes.
@@ -131,6 +132,23 @@ public class NoteController {
 
         return ResponseEntity.ok(new MessageResponse("Note deleted successfully"));
     }
+
+        // -------------------------------------------------------------------
+    // GET /api/notes/dates
+    // Return all dates that contain notes for the authenticated user.
+    // -------------------------------------------------------------------
+    @GetMapping("/dates")
+    public ResponseEntity<List<LocalDate>> getAllNoteDates(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        User user = getUserOrThrow(userPrincipal);
+
+        List<LocalDate> dates =
+                noteRepository.findAllNoteDatesByUser(user);
+
+        return ResponseEntity.ok(dates);
+    }
+
 
     // =====================================================================
     // Helper Methods

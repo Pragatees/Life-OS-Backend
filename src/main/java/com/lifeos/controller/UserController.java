@@ -37,11 +37,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.lifeos.repository.GoalRepository;
+import com.lifeos.repository.NoteRepository;
+
+
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
 
 @RestController
 @RequestMapping("/api/users")
@@ -54,10 +59,14 @@ public class UserController {
     private final DeleteAccountTokenRepository deleteAccountTokenRepository;
     private final EmailChangeTokenRepository emailChangeTokenRepository;
     private final EmailService emailService;
+    private final GoalRepository goalRepository;
+    private final NoteRepository noteRepository;
 
     public UserController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
                           TaskRepository taskRepository,
+                          GoalRepository goalRepository,
+                          NoteRepository noteRepository,
                           CloudinaryService cloudinaryService,
                           DeleteAccountTokenRepository deleteAccountTokenRepository,
                           EmailChangeTokenRepository emailChangeTokenRepository,
@@ -66,6 +75,8 @@ public class UserController {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.taskRepository = taskRepository;
+        this.goalRepository = goalRepository;
+        this.noteRepository = noteRepository;
         this.cloudinaryService = cloudinaryService;
         this.deleteAccountTokenRepository = deleteAccountTokenRepository;
         this.emailChangeTokenRepository = emailChangeTokenRepository;
@@ -477,9 +488,15 @@ public class UserController {
 
         User user = deleteToken.getUser();
 
+        // Delete the OTP token first
         deleteAccountTokenRepository.delete(deleteToken);
 
+        // Delete all user-related data
         taskRepository.deleteByUser(user);
+        goalRepository.deleteByUser(user);
+        noteRepository.deleteByUser(user);
+
+        // Finally delete the user
         userRepository.delete(user);
 
         return ResponseEntity.ok(new MessageResponse("Account deleted successfully."));

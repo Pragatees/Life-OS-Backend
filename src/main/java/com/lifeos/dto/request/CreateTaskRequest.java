@@ -1,5 +1,6 @@
 package com.lifeos.dto.request;
 
+import com.lifeos.entity.RepeatType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -21,6 +22,12 @@ public class CreateTaskRequest {
 
     @NotBlank(message = "Priority is required")
     private String priority;
+
+    /**
+     * Optional.
+     * Defaults to NEVER if not provided.
+     */
+    private RepeatType repeatType = RepeatType.NEVER;
 
     public CreateTaskRequest() {
     }
@@ -63,5 +70,13 @@ public class CreateTaskRequest {
 
     public void setPriority(String priority) {
         this.priority = priority;
+    }
+
+    public RepeatType getRepeatType() {
+        return repeatType;
+    }
+
+    public void setRepeatType(RepeatType repeatType) {
+        this.repeatType = (repeatType != null) ? repeatType : RepeatType.NEVER;
     }
 }

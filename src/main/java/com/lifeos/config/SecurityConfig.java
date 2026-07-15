@@ -52,7 +52,8 @@ public class SecurityConfig {
                                 "/api/auth/google/login",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/verify-reset-otp"
+                                "/api/auth/verify-reset-otp",
+                                "api/health"
                         ).permitAll()
 
                         .anyRequest().authenticated()
